@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
-  Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList 
+  Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList, AreaChart, Area 
 } from 'recharts';
 import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2, Leaf, Monitor, Droplets, Recycle } from 'lucide-react';
 
@@ -13,7 +13,7 @@ const COLOR_MAP = {
   metalicos: '#FEE000',      // Amarillo
   vidrio: '#939598',         // Gris
   papelCarton: '#0096D6',    // Azul Claro
-  pulper: '#6A0DAD',         // Morado (Solicitado)
+  pulper: '#6A0DAD',         // Morado
   madera: '#63422B',         // Marrón Oscuro
   noAprovechables: '#231F20',// Negro
   plasticos: '#FFFFFF',      // Blanco
@@ -32,6 +32,7 @@ const RED_SHADES = {
 
 // Función auxiliar para asignar color
 const getColor = (name, category = '') => {
+  if (!name) return COLOR_MAP.default;
   const n = name.toLowerCase();
   
   if (category === 'peligrosos') {
@@ -236,7 +237,6 @@ const getPlantData = (plantId) => {
   return data;
 };
 
-// --- HELPERS ---
 const aggregateTrends = (items) => {
   if (!items || items.length === 0) return [];
   const aggregated = items[0].trend.map((_, index) => {
@@ -250,7 +250,7 @@ const aggregateTrends = (items) => {
 };
 
 // --- RENDERIZADO PERSONALIZADO DE ETIQUETAS (PIE CHART) ---
-// Se ha ajustado la distancia (outerRadius + 35) para separar más los textos
+// Distancia revertida a 15
 const RADIAN = Math.PI / 180;
 const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, payload }) => {
   if (percent < 0.01) return null;
@@ -258,8 +258,8 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   const cos = Math.cos(-RADIAN * midAngle);
   const sx = cx + (outerRadius) * cos;
   const sy = cy + (outerRadius) * sin;
-  const mx = cx + (outerRadius + 35) * cos; // AUMENTADO PARA ALEJAR ETIQUETA
-  const my = cy + (outerRadius + 35) * sin; // AUMENTADO PARA ALEJAR ETIQUETA
+  const mx = cx + (outerRadius + 15) * cos; 
+  const my = cy + (outerRadius + 15) * sin; 
   const ex = mx + (cos >= 0 ? 1 : -1) * 20;
   const ey = my;
   
@@ -269,7 +269,13 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
 
   return (
     <g>
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={itemColor} fill="none" strokeWidth={1.5} />
+      <path 
+        d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} 
+        stroke={itemColor} 
+        fill="none" 
+        strokeWidth={1.5} 
+        strokeDasharray={isPlastic ? "3 3" : "0"} 
+      />
       <circle cx={ex} cy={ey} r={2} fill={itemColor} stroke="none" />
       <rect 
         x={cos >= 0 ? ex + 5 : ex - 45} 
@@ -297,47 +303,49 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   );
 };
 
-// --- ETIQUETA BARRA CON CONTRASTE ---
+// --- ETIQUETA BARRA CON SEGURIDAD Y DISTANCIA ---
 const CustomBarLabel = (props) => {
-  const { x, y, width, height, value, index, data } = props;
-  const item = data && data[index];
-  if (!item) return null;
+  const { x, y, width, value, index, data } = props;
   
-  const isPeligrosos = data.some(d => d.name === 'Hidrocarburos');
-  const color = getColor(item.name, isPeligrosos ? 'peligrosos' : '');
+  // Safety check: ensure item exists
+  if (!data || !data[index]) return null;
+  
+  const item = data[index];
+  const color = getColor(item.name);
   const textColor = getContrastColor(color);
   
+  const isSeparatedItem = item.name.includes('Vidrio') || item.name.includes('Descarte personal care');
+  const lineLength = isSeparatedItem ? 40 : 10; 
+
   return (
     <g>
       <line 
         x1={x + width} 
         y1={y + height / 2} 
-        x2={x + width + 10} 
+        x2={x + width + lineLength} 
         y2={y + height / 2} 
         stroke="#94a3b8" 
         strokeWidth={1}
         strokeDasharray="2 2"
       />
-      <circle cx={x + width + 10} cy={y + height / 2} r={2} fill="#94a3b8" />
+      <circle cx={x + width + lineLength} cy={y + height / 2} r={2} fill="#94a3b8" />
       <text 
-        x={x + width + 15} 
+        x={x + width + lineLength + 5} 
         y={y + height / 2} 
-        dy={-3} 
+        dy={-5} 
         fill="#475569" 
         fontSize={10} 
         fontWeight="bold"
-        dominantBaseline="middle"
       >
-        {value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn
+        {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn
       </text>
       <text 
-        x={x + width + 15} 
+        x={x + width + lineLength + 5} 
         y={y + height / 2} 
         dy={8} 
         fill={textColor === '#FFFFFF' ? '#64748b' : textColor} 
         fontSize={9} 
         fontWeight="bold"
-        dominantBaseline="middle"
       >
         ({item.percentage}%)
       </text>
@@ -345,8 +353,23 @@ const CustomBarLabel = (props) => {
   );
 };
 
-// --- LEYENDA PERSONALIZADA PARA PIE CHART ---
+// --- ETIQUETA SUPERIOR PARA PELIGROSOS CON SEGURIDAD ---
+const HazardousBarLabel = (props) => {
+  const { x, y, width, value, index, payload } = props;
+  
+  // Use payload if available, otherwise strict check
+  if (value === undefined || value === null) return null;
+  const percentage = payload ? payload.percentage : 0;
+
+  return (
+    <text x={x + width / 2} y={y - 10} fill="#b91c1c" textAnchor="middle" fontSize={10} fontWeight="bold">
+      {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn ({percentage}%)
+    </text>
+  );
+};
+
 const CustomLegend = ({ payload }) => {
+  if (!payload) return null;
   return (
     <div className="flex flex-col gap-1 text-[10px] ml-4 justify-center h-full">
       {payload.map((entry, index) => {
@@ -358,13 +381,13 @@ const CustomLegend = ({ payload }) => {
                 width: 10, 
                 height: 10, 
                 backgroundColor: entry.color, 
-                border: isPlastic ? '1px solid #000' : 'none', // Borde negro para el cuadradito blanco
+                border: isPlastic ? '1px solid #000' : 'none', 
                 borderRadius: '2px'
               }} 
             />
             <span style={{ 
               color: '#334155',
-              fontWeight: isPlastic ? '900' : '500', // Negrita para el texto Plásticos
+              fontWeight: isPlastic ? '900' : '500', 
               textShadow: isPlastic ? '0px 0px 0.5px rgba(0,0,0,0.5)' : 'none'
             }}>
               {entry.value}
@@ -376,10 +399,16 @@ const CustomLegend = ({ payload }) => {
   );
 };
 
-const CardHeader = ({ title, icon: Icon, colorClass, onShowTrend }) => (
+const CardHeader = ({ title, icon: Icon, colorClass, onShowTrend, link }) => (
   <div className={`flex items-center justify-between p-4 border-b border-slate-100 ${colorClass} bg-opacity-10`}>
     <div className="flex items-center gap-2">
-      <Icon className={`w-5 h-5 ${colorClass.replace('bg-', 'text-')}`} />
+      {link ? (
+        <a href={link} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform cursor-pointer" title="Ver documentación en Drive">
+           <Trash2 className={`w-6 h-6 ${colorClass.replace('bg-', 'text-')}`} />
+        </a>
+      ) : (
+        <Icon className={`w-5 h-5 ${colorClass.replace('bg-', 'text-')}`} />
+      )}
       <h3 className="font-bold text-slate-800 uppercase text-sm tracking-wider">{title}</h3>
     </div>
     {onShowTrend && (
@@ -523,7 +552,6 @@ export default function App() {
   const totalPeligrosos = calculateTotal(currentData.peligrosos);
   const dataPeligrosos = processForChart(currentData.peligrosos, totalPeligrosos);
 
-  // KPI PRINCIPAL 
   const totalGeneradoKPI = totalAprovechables + totalNoAprovechables + 
                            calculateTotal(currentData.noPeligrosos.organicos) + 
                            totalPeligrosos + 
@@ -606,8 +634,9 @@ export default function App() {
         <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <CardHeader 
             title="RESIDUOS NO PELIGROSOS" 
-            icon={FileText} 
-            colorClass="bg-emerald-100 text-emerald-700" 
+            icon={FileText} // Este icono no se renderiza si hay link, se usa Trash2 por defecto
+            colorClass="bg-emerald-100 text-emerald-700"
+            link="https://drive.google.com/drive/folders/1vC71gtz1w8ltSiE7UFc9aHrKwegJh815"
           />
           
           <div className="p-8 space-y-10">
@@ -682,7 +711,7 @@ export default function App() {
                           <LabelList 
                             dataKey="name" 
                             position="insideLeft" 
-                            style={{fill: '#1e293b', fontSize: '10px', fontWeight: 'bold', textShadow: '0 0 2px white'}} // Sombra ligera para legibilidad universal
+                            style={{fill: '#1e293b', fontSize: '10px', fontWeight: 'bold', textShadow: '0 0 2px white'}} 
                           />
                           <LabelList data={dataNoPeligrososA} content={<CustomBarLabel />} />
                         </Bar>
@@ -787,10 +816,23 @@ export default function App() {
                        </button>
                    </div>
                    <div className="flex-1 flex flex-col justify-center items-center">
-                      <div className="relative w-32 h-32 flex items-center justify-center">
-                         <div className="absolute inset-0 border-8 border-amber-200 rounded-full opacity-30"></div>
-                         <div className="absolute inset-0 border-8 border-amber-500 rounded-full border-t-transparent animate-spin-slow"></div>
-                         <span className="text-2xl font-black text-amber-700">100%</span>
+                      <div className="relative w-48 h-32 flex items-center justify-center">
+                         <ResponsiveContainer width="100%" height="100%">
+                           <PieChart>
+                             <Pie
+                               data={[{name: 'Orgánicos', value: 100}]}
+                               cx="50%" cy="100%"
+                               startAngle={180} endAngle={0}
+                               innerRadius={50} outerRadius={80}
+                               dataKey="value"
+                             >
+                               <Cell fill="#754C29" />
+                             </Pie>
+                           </PieChart>
+                         </ResponsiveContainer>
+                         <div className="absolute inset-0 flex items-end justify-center pb-2">
+                            <Leaf className="text-amber-700 w-8 h-8 mb-2" />
+                         </div>
                       </div>
                       
                       {currentData.noPeligrosos.organicos.map((item, idx) => {
@@ -804,7 +846,7 @@ export default function App() {
                                 backgroundColor: btnColor,
                                 color: textColor === '#FFFFFF' ? '#FFFFFF' : '#1e293b'
                              }}
-                             className="mt-8 px-6 py-3 rounded-xl shadow-sm font-bold text-sm hover:opacity-90 transition-colors flex items-center gap-2"
+                             className="mt-4 px-6 py-3 rounded-xl shadow-sm font-bold text-sm hover:opacity-90 transition-colors flex items-center gap-2"
                           >
                              Ver Tendencia Específica <ChevronRight size={16} />
                           </button>
@@ -830,7 +872,7 @@ export default function App() {
              />
              <div className="p-6">
                 <div className="h-64 mb-6">
-                   <h5 className="text-[10px] text-slate-400 font-bold uppercase mb-2 text-center">Cantidad (Tn)</h5>
+                   <h5 className="text-[10px] text-slate-400 font-bold uppercase mb-2 text-center">Cantidad (Tn) y Porcentaje</h5>
                    <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={dataPeligrosos} margin={{top: 20}}>
                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -840,7 +882,7 @@ export default function App() {
                             {dataPeligrosos.map((entry, index) => (
                                <Cell key={`cell-${index}`} fill={getColor(entry.name, 'peligrosos')} />
                             ))}
-                            <LabelList dataKey="value" position="top" style={{fontSize: '11px', fill: '#991b1b', fontWeight: 'bold'}} formatter={(v) => `${v.toFixed(2)}`} />
+                            <LabelList data={dataPeligrosos} content={<HazardousBarLabel />} />
                          </Bar>
                       </BarChart>
                    </ResponsiveContainer>
@@ -906,6 +948,20 @@ export default function App() {
                     onShowTrend={() => handleCategoryTrend(currentData.descarte, "Residuos de Descarte")}
                  />
                  <div className="p-6">
+                    <div className="h-32 w-full mb-2">
+                       <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={currentData.descarte[0].trend}>
+                             <defs>
+                                <linearGradient id="colorLodos" x1="0" y1="0" x2="0" y2="1">
+                                   <stop offset="5%" stopColor="#475569" stopOpacity={0.3}/>
+                                   <stop offset="95%" stopColor="#475569" stopOpacity={0}/>
+                                </linearGradient>
+                             </defs>
+                             <Tooltip contentStyle={{fontSize: '10px'}} />
+                             <Area type="monotone" dataKey="value" stroke="#475569" fillOpacity={1} fill="url(#colorLodos)" />
+                          </AreaChart>
+                       </ResponsiveContainer>
+                    </div>
                     {currentData.descarte.map((item, idx) => (
                       <button 
                          key={idx} 
