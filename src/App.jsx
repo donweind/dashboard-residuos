@@ -251,7 +251,7 @@ const aggregateTrends = (items) => {
 
 // --- RENDERIZADO PERSONALIZADO DE ETIQUETAS (PIE CHART) ---
 const RADIAN = Math.PI / 180;
-const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, payload }) => {
+const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
   if (percent < 0.01) return null;
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
@@ -302,65 +302,71 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   );
 };
 
-// --- ETIQUETA BARRA CON SEGURIDAD (PAYLOAD CHECK) ---
+// --- ETIQUETA BARRA (SAFETY CHECKED) ---
 const CustomBarLabel = (props) => {
-  const { x, y, width, height, value, index, payload } = props;
+  const { x, y, width, value, index, data } = props;
   
-  // Guard Clause: Verifica que 'value' sea número y 'payload' exista
-  if (value === undefined || value === null || typeof value !== 'number' || !payload) return null;
+  // Verificación estricta: si data no existe o el índice falla, no renderizar
+  if (!data || !data[index]) return null;
   
-  const color = getColor(payload.name);
+  const item = data[index];
+  const val = Number(value);
+  if (isNaN(val)) return null;
+
+  const color = getColor(item.name);
   const textColor = getContrastColor(color);
   
-  const isSeparatedItem = payload.name.includes('Vidrio') || payload.name.includes('Descarte personal care');
+  const isSeparatedItem = item.name.includes('Vidrio') || item.name.includes('Descarte personal care');
   const lineLength = isSeparatedItem ? 40 : 10; 
 
   return (
     <g>
       <line 
         x1={x + width} 
-        y1={y + height / 2} 
+        y1={y + 10} // Ajuste fino Y
         x2={x + width + lineLength} 
-        y2={y + height / 2} 
+        y2={y + 10} 
         stroke="#94a3b8" 
         strokeWidth={1}
         strokeDasharray="2 2"
       />
-      <circle cx={x + width + lineLength} cy={y + height / 2} r={2} fill="#94a3b8" />
+      <circle cx={x + width + lineLength} cy={y + 10} r={2} fill="#94a3b8" />
       <text 
         x={x + width + lineLength + 5} 
-        y={y + height / 2} 
+        y={y + 10} 
         dy={-5} 
         fill="#475569" 
         fontSize={10} 
         fontWeight="bold"
       >
-        {value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn
+        {val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn
       </text>
       <text 
         x={x + width + lineLength + 5} 
-        y={y + height / 2} 
+        y={y + 10} 
         dy={8} 
         fill={textColor === '#FFFFFF' ? '#64748b' : textColor} 
         fontSize={9} 
         fontWeight="bold"
       >
-        ({payload.percentage}%)
+        ({item.percentage}%)
       </text>
     </g>
   );
 };
 
-// --- ETIQUETA SUPERIOR PARA PELIGROSOS CON SEGURIDAD ---
+// --- ETIQUETA SUPERIOR PELIGROSOS (SAFETY CHECKED) ---
 const HazardousBarLabel = (props) => {
-  const { x, y, width, value, index, payload } = props;
+  const { x, y, width, value, index, data } = props;
   
-  // Usamos payload para extraer los datos de forma segura
-  if (value === undefined || value === null || typeof value !== 'number' || !payload) return null;
+  if (!data || !data[index]) return null;
+  const item = data[index];
+  const val = Number(value);
+  if (isNaN(val)) return null;
 
   return (
     <text x={x + width / 2} y={y - 10} fill="#b91c1c" textAnchor="middle" fontSize={10} fontWeight="bold">
-      {value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn ({payload.percentage}%)
+      {val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn ({item.percentage}%)
     </text>
   );
 };
@@ -396,7 +402,7 @@ const CustomLegend = ({ payload }) => {
   );
 };
 
-const CardHeader = ({ title, icon: Icon, colorClass, onShowTrend }) => (
+const CardHeader = ({ title, icon: Icon, colorClass, onShowTrend, link }) => (
   <div className={`flex items-center justify-between p-4 border-b border-slate-100 ${colorClass} bg-opacity-10`}>
     <div className="flex items-center gap-2">
       <Icon className={`w-5 h-5 ${colorClass.replace('bg-', 'text-')}`} />
@@ -423,16 +429,19 @@ const PlantSelector = ({ selectedPlant, onSelect }) => {
   return (
     <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-200 p-4 lg:p-6 flex flex-col md:flex-row items-center justify-between gap-4 z-10 relative">
       <div className="flex items-center gap-3 shrink-0">
-        <a 
-          href="https://drive.google.com/drive/folders/1vC71gtz1w8ltSiE7UFc9aHrKwegJh815" 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="bg-blue-600 p-3 rounded-lg text-white hover:bg-blue-700 transition-colors cursor-pointer group"
-          title="Ver Documentación en Drive"
-        >
+        <div className="bg-blue-600 p-3 rounded-lg text-white relative">
           <Factory size={24} />
-          <ExternalLink size={12} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" />
-        </a>
+          {/* BOTÓN DRIVE - FLECHA */}
+          <a 
+            href="https://drive.google.com/drive/folders/1vC71gtz1w8ltSiE7UFc9aHrKwegJh815" 
+            target="_blank" 
+            rel="noopener noreferrer"
+            className="absolute -bottom-2 -right-2 bg-emerald-500 text-white rounded-full p-1 border-2 border-white shadow-sm hover:scale-110 transition-transform"
+            title="Ir al Drive"
+          >
+            <ExternalLink size={10} />
+          </a>
+        </div>
         <div>
            <h2 className="text-lg font-bold text-slate-800 uppercase leading-none">Selector de Operación</h2>
            <p className="text-xs text-slate-500 mt-1">Datos Reales 2025</p>
@@ -633,8 +642,8 @@ export default function App() {
         <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <CardHeader 
             title="RESIDUOS NO PELIGROSOS" 
-            icon={Trash2} // Icono Tachito (solo visual, sin link aquí)
-            colorClass="bg-emerald-100 text-emerald-700"
+            icon={FileText} 
+            colorClass="bg-emerald-100 text-emerald-700" 
           />
           
           <div className="p-8 space-y-10">
