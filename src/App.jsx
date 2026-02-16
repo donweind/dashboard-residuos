@@ -13,7 +13,7 @@ const COLOR_MAP = {
   metalicos: '#FEE000',      // Amarillo
   vidrio: '#939598',         // Gris
   papelCarton: '#0096D6',    // Azul Claro
-  pulper: '#6A0DAD',         // Morado
+  pulper: '#6A0DAD',         // Morado (Solicitado)
   madera: '#63422B',         // Marrón Oscuro
   noAprovechables: '#231F20',// Negro
   plasticos: '#FFFFFF',      // Blanco
@@ -32,7 +32,6 @@ const RED_SHADES = {
 
 // Función auxiliar para asignar color
 const getColor = (name, category = '') => {
-  if (!name) return COLOR_MAP.default;
   const n = name.toLowerCase();
   
   if (category === 'peligrosos') {
@@ -237,6 +236,7 @@ const getPlantData = (plantId) => {
   return data;
 };
 
+// --- HELPERS ---
 const aggregateTrends = (items) => {
   if (!items || items.length === 0) return [];
   const aggregated = items[0].trend.map((_, index) => {
@@ -250,7 +250,7 @@ const aggregateTrends = (items) => {
 };
 
 // --- RENDERIZADO PERSONALIZADO DE ETIQUETAS (PIE CHART) ---
-// Distancia revertida a 15
+// SE HA REGRESADO A UNA DISTANCIA MENOR (+15) SEGÚN LO PEDIDO
 const RADIAN = Math.PI / 180;
 const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, payload }) => {
   if (percent < 0.01) return null;
@@ -258,8 +258,8 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   const cos = Math.cos(-RADIAN * midAngle);
   const sx = cx + (outerRadius) * cos;
   const sy = cy + (outerRadius) * sin;
-  const mx = cx + (outerRadius + 15) * cos; 
-  const my = cy + (outerRadius + 15) * sin; 
+  const mx = cx + (outerRadius + 15) * cos; // DISTANCIA REVERTIDA (MAS CORTA)
+  const my = cy + (outerRadius + 15) * sin; // DISTANCIA REVERTIDA (MAS CORTA)
   const ex = mx + (cos >= 0 ? 1 : -1) * 20;
   const ey = my;
   
@@ -274,7 +274,7 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
         stroke={itemColor} 
         fill="none" 
         strokeWidth={1.5} 
-        strokeDasharray={isPlastic ? "3 3" : "0"} 
+        strokeDasharray={isPlastic ? "3 3" : "0"} // LINEA PUNTEADA PARA PLASTICOS
       />
       <circle cx={ex} cy={ey} r={2} fill={itemColor} stroke="none" />
       <rect 
@@ -303,19 +303,19 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   );
 };
 
-// --- ETIQUETA BARRA CON SEGURIDAD Y DISTANCIA ---
+// --- ETIQUETA BARRA CON DISTANCIA AUMENTADA PARA ITEMS ESPECIFICOS ---
 const CustomBarLabel = (props) => {
-  const { x, y, width, value, index, data } = props;
+  const { x, y, width, height, value, index, data } = props;
+  const item = data && data[index];
+  if (!item) return null;
   
-  // Safety check: ensure item exists
-  if (!data || !data[index]) return null;
-  
-  const item = data[index];
-  const color = getColor(item.name);
+  const isPeligrosos = data.some(d => d.name === 'Hidrocarburos');
+  const color = getColor(item.name, isPeligrosos ? 'peligrosos' : '');
   const textColor = getContrastColor(color);
   
+  // Detectar items que necesitan mas espacio en el grafico de barras
   const isSeparatedItem = item.name.includes('Vidrio') || item.name.includes('Descarte personal care');
-  const lineLength = isSeparatedItem ? 40 : 10; 
+  const lineLength = isSeparatedItem ? 40 : 10; // AUMENTO DE DISTANCIA PARA ESTOS ITEMS
 
   return (
     <g>
@@ -337,7 +337,7 @@ const CustomBarLabel = (props) => {
         fontSize={10} 
         fontWeight="bold"
       >
-        {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn
+        {value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn
       </text>
       <text 
         x={x + width + lineLength + 5} 
@@ -353,23 +353,8 @@ const CustomBarLabel = (props) => {
   );
 };
 
-// --- ETIQUETA SUPERIOR PARA PELIGROSOS CON SEGURIDAD ---
-const HazardousBarLabel = (props) => {
-  const { x, y, width, value, index, payload } = props;
-  
-  // Use payload if available, otherwise strict check
-  if (value === undefined || value === null) return null;
-  const percentage = payload ? payload.percentage : 0;
-
-  return (
-    <text x={x + width / 2} y={y - 10} fill="#b91c1c" textAnchor="middle" fontSize={10} fontWeight="bold">
-      {Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn ({percentage}%)
-    </text>
-  );
-};
-
+// --- LEYENDA PERSONALIZADA PARA PIE CHART ---
 const CustomLegend = ({ payload }) => {
-  if (!payload) return null;
   return (
     <div className="flex flex-col gap-1 text-[10px] ml-4 justify-center h-full">
       {payload.map((entry, index) => {
@@ -381,13 +366,13 @@ const CustomLegend = ({ payload }) => {
                 width: 10, 
                 height: 10, 
                 backgroundColor: entry.color, 
-                border: isPlastic ? '1px solid #000' : 'none', 
+                border: isPlastic ? '1px solid #000' : 'none', // Borde negro para el cuadradito blanco
                 borderRadius: '2px'
               }} 
             />
             <span style={{ 
               color: '#334155',
-              fontWeight: isPlastic ? '900' : '500', 
+              fontWeight: isPlastic ? '900' : '500', // Negrita para el texto Plásticos
               textShadow: isPlastic ? '0px 0px 0.5px rgba(0,0,0,0.5)' : 'none'
             }}>
               {entry.value}
@@ -399,16 +384,10 @@ const CustomLegend = ({ payload }) => {
   );
 };
 
-const CardHeader = ({ title, icon: Icon, colorClass, onShowTrend, link }) => (
+const CardHeader = ({ title, icon: Icon, colorClass, onShowTrend }) => (
   <div className={`flex items-center justify-between p-4 border-b border-slate-100 ${colorClass} bg-opacity-10`}>
     <div className="flex items-center gap-2">
-      {link ? (
-        <a href={link} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform cursor-pointer" title="Ver documentación en Drive">
-           <Trash2 className={`w-6 h-6 ${colorClass.replace('bg-', 'text-')}`} />
-        </a>
-      ) : (
-        <Icon className={`w-5 h-5 ${colorClass.replace('bg-', 'text-')}`} />
-      )}
+      <Icon className={`w-5 h-5 ${colorClass.replace('bg-', 'text-')}`} />
       <h3 className="font-bold text-slate-800 uppercase text-sm tracking-wider">{title}</h3>
     </div>
     {onShowTrend && (
@@ -552,6 +531,7 @@ export default function App() {
   const totalPeligrosos = calculateTotal(currentData.peligrosos);
   const dataPeligrosos = processForChart(currentData.peligrosos, totalPeligrosos);
 
+  // KPI PRINCIPAL 
   const totalGeneradoKPI = totalAprovechables + totalNoAprovechables + 
                            calculateTotal(currentData.noPeligrosos.organicos) + 
                            totalPeligrosos + 
@@ -634,9 +614,8 @@ export default function App() {
         <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <CardHeader 
             title="RESIDUOS NO PELIGROSOS" 
-            icon={FileText} // Este icono no se renderiza si hay link, se usa Trash2 por defecto
-            colorClass="bg-emerald-100 text-emerald-700"
-            link="https://drive.google.com/drive/folders/1vC71gtz1w8ltSiE7UFc9aHrKwegJh815"
+            icon={FileText} 
+            colorClass="bg-emerald-100 text-emerald-700" 
           />
           
           <div className="p-8 space-y-10">
@@ -711,7 +690,7 @@ export default function App() {
                           <LabelList 
                             dataKey="name" 
                             position="insideLeft" 
-                            style={{fill: '#1e293b', fontSize: '10px', fontWeight: 'bold', textShadow: '0 0 2px white'}} 
+                            style={{fill: '#1e293b', fontSize: '10px', fontWeight: 'bold', textShadow: '0 0 2px white'}} // Sombra ligera para legibilidad universal
                           />
                           <LabelList data={dataNoPeligrososA} content={<CustomBarLabel />} />
                         </Bar>
@@ -882,7 +861,7 @@ export default function App() {
                             {dataPeligrosos.map((entry, index) => (
                                <Cell key={`cell-${index}`} fill={getColor(entry.name, 'peligrosos')} />
                             ))}
-                            <LabelList data={dataPeligrosos} content={<HazardousBarLabel />} />
+                            <LabelList data={dataPeligrosos} content={<CustomBarLabel />} />
                          </Bar>
                       </BarChart>
                    </ResponsiveContainer>
