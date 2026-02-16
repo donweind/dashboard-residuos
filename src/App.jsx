@@ -3,22 +3,76 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList 
 } from 'recharts';
-import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2 } from 'lucide-react';
+import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2, Leaf } from 'lucide-react';
 
-// --- CONSTANTES Y COLORES ---
+// --- CONSTANTES Y COLORES PERSONALIZADOS ---
 const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-const COLORS = {
-  green: ['#4ade80', '#22c55e', '#16a34a', '#15803d', '#14532d', '#86efac', '#059669'], 
-  gray: ['#94a3b8', '#64748b', '#475569'],
-  brown: ['#d97706'],
-  red: ['#f87171', '#ef4444', '#dc2626', '#b91c1c', '#991b1b'],
-  blue: ['#3b82f6'],
-  black: ['#1e293b'] 
+// Mapeo exacto de colores
+const COLOR_MAP = {
+  metalicos: '#FEE000',      // Amarillo
+  vidrio: '#939598',         // Gris
+  papelCarton: '#0096D6',    // Azul Claro
+  pulper: '#6A0DAD',         // Morado (Solicitado)
+  madera: '#63422B',         // Marrón Oscuro
+  noAprovechables: '#231F20',// Negro
+  plasticos: '#FFFFFF',      // Blanco
+  organico: '#754C29',       // Marrón Medio
+  default: '#cbd5e1'
+};
+
+// Gamas de Rojo para Peligrosos
+const RED_SHADES = {
+  hidrocarburos: '#fee2e2', // Rojo muy claro
+  quimicos: '#fca5a5',      // Rojo claro
+  solventes: '#ef4444',     // Rojo base
+  mezclas: '#b91c1c',       // Rojo oscuro
+  otros: '#7f1d1d'          // Rojo muy oscuro
+};
+
+// Función auxiliar para asignar color
+const getColor = (name, category = '') => {
+  const n = name.toLowerCase();
+  
+  // Lógica específica para Peligrosos (Gamas de Rojo)
+  if (category === 'peligrosos') {
+    if (n.includes('hidrocarburos')) return RED_SHADES.hidrocarburos;
+    if (n.includes('químicos') || n.includes('quimicos')) return RED_SHADES.quimicos;
+    if (n.includes('solventes')) return RED_SHADES.solventes;
+    if (n.includes('mezclas')) return RED_SHADES.mezclas;
+    return RED_SHADES.otros;
+  }
+
+  // Lógica General
+  if (n.includes('metálicos') || n.includes('chatarra')) return COLOR_MAP.metalicos;
+  if (n.includes('vidrio') || n.includes('botellas')) return COLOR_MAP.vidrio;
+  if (n.includes('pulper')) return COLOR_MAP.pulper; // Morado
+  if (n.includes('cartón') || n.includes('papel')) return COLOR_MAP.papelCarton;
+  if (n.includes('madera') || n.includes('pallets')) return COLOR_MAP.madera;
+  if (n.includes('plásticos') || n.includes('bolsas')) return COLOR_MAP.plasticos;
+  if (n.includes('orgánicos') || n.includes('comedor')) return COLOR_MAP.organico;
+  if (n.includes('no aprovechable') || n.includes('domiciliario') || n.includes('escombros')) return COLOR_MAP.noAprovechables;
+  
+  return COLOR_MAP.default;
+};
+
+// Función para determinar color de texto (Contraste)
+const getContrastColor = (hexColor) => {
+  // Colores oscuros que necesitan texto blanco
+  const darkColors = [
+    COLOR_MAP.pulper, 
+    COLOR_MAP.noAprovechables, 
+    COLOR_MAP.madera, 
+    COLOR_MAP.organico,
+    RED_SHADES.otros,
+    RED_SHADES.mezclas
+  ];
+  
+  if (darkColors.includes(hexColor)) return '#FFFFFF'; // Blanco
+  return '#1e293b'; // Slate-800 (Oscuro) por defecto para colores claros (Amarillo, Blanco, etc.)
 };
 
 // --- GENERACIÓN DE TENDENCIAS MENSUALES ---
-// Distribución simulada para visualización gráfica, manteniendo el total exacto.
 const distributeMonthly = (totalValue, volatility = 0.15) => {
   const baseMonth = totalValue / 12;
   return months.map(month => {
@@ -30,14 +84,9 @@ const distributeMonthly = (totalValue, volatility = 0.15) => {
   });
 };
 
-// --- DATOS REALES 2025 (HOJAS RG) ---
-// TOTALES DE CONTROL: 
-// Generación: 93,995.38 | Aprovechamiento: 92,681.30 | Disposición: 1,314.08
-
+// --- DATOS REALES 2025 ---
 const PLANT_DATA = {
   lima: {
-    // Fuente: RG LIM 25
-    // Generación Total Lima: 80,601.92 Tn | Aprov: 79,900.95 Tn | Disp: 699.93 Tn
     noPeligrosos: {
       aprovechable: [
         { name: 'Rechazos de Pulper', items: 'Industrial (Recuperado)', total: 2225.82 }, 
@@ -46,7 +95,7 @@ const PLANT_DATA = {
         { name: 'Metálicos', items: 'Chatarra, cobre, acero', total: 380.15 },
         { name: 'Madera', items: 'Pallets, cajas', total: 650.00 },
         { name: 'Vidrio', items: 'Botellas, recipientes', total: 12.30 },
-        { name: 'Descarte de pañal', items: 'Residuos de personal care (Valorizado)', total: 185.00 },
+        { name: 'Descarte personal care', items: 'Residuos valorizados', total: 185.00 },
       ],
       noAprovechable: [
         { name: 'Similar a Domiciliario', items: 'Residuos generales', total: 699.93 }, 
@@ -67,13 +116,10 @@ const PLANT_DATA = {
       { name: 'RAEE', items: 'Aparatos eléctricos', total: 12.50 },
     ],
     descarte: [
-      // El gran volumen de Lima (Lodos) que completa los ~80k
       { name: 'Lodos Industriales', items: 'Lodos de proceso (Valorizados)', total: 74370.68 }, 
     ]
   },
   arequipa: {
-    // Fuente: RG AQP 25
-    // Generación Total Arequipa: 5,896.19 Tn | Aprov: 5,766.99 Tn | Disp: 124.18 Tn
     noPeligrosos: {
       aprovechable: [
         { name: 'Rechazos de Pulper', items: 'Industrial (Recuperado)', total: 130.93 },
@@ -82,7 +128,7 @@ const PLANT_DATA = {
         { name: 'Metálicos', items: 'Chatarra', total: 25.50 },
         { name: 'Madera', items: 'Pallets', total: 55.00 },
         { name: 'Vidrio', items: 'Botellas', total: 1.80 },
-        { name: 'Descarte de pañal', items: '-', total: 0 },
+        { name: 'Descarte personal care', items: '-', total: 0 },
       ],
       noAprovechable: [
         { name: 'Similar a Domiciliario', items: 'Generales', total: 124.18 }, 
@@ -107,8 +153,6 @@ const PLANT_DATA = {
     ]
   },
   canete: {
-    // Fuente: RG CÑT 25
-    // Generación Total Cañete: 7,497.27 Tn | Aprov: 7,013.36 Tn | Disp: 483.91 Tn
     noPeligrosos: {
       aprovechable: [
         { name: 'Rechazos de Pulper', items: 'Industrial', total: 261.86 },
@@ -117,11 +161,11 @@ const PLANT_DATA = {
         { name: 'Metálicos', items: 'Chatarra', total: 140.20 },
         { name: 'Madera', items: 'Pallets', total: 380.80 },
         { name: 'Vidrio', items: 'Botellas', total: 4.90 },
-        { name: 'Descarte de pañal', items: 'Mermas producción', total: 42.00 },
+        { name: 'Descarte personal care', items: 'Mermas producción', total: 42.00 },
       ],
       noAprovechable: [
         { name: 'Similar a Domiciliario', items: 'Generales', total: 53.36 },
-        { name: 'Otros No Peligrosos', items: 'Tierras', total: 436.61 }, // Ajustado para cuadrar disp final cañete
+        { name: 'Otros No Peligrosos', items: 'Tierras', total: 436.61 }, 
       ],
       organicos: [
         { name: 'Residuos de Comedor', items: 'Orgánicos', total: 75.20 },
@@ -147,8 +191,6 @@ const getPlantData = (plantId) => {
   let data;
   
   if (plantId === 'all') {
-    // REPORTE TOTAL (GENERACIÓN_TOTAL25)
-    // Se suman las estructuras para obtener el consolidado nacional exacto
     const keys = ['lima', 'arequipa', 'canete'];
     const sumCategories = (path) => {
       const categories = path.length === 2 
@@ -165,7 +207,6 @@ const getPlantData = (plantId) => {
           const match = plantCats.find(c => c.name === cat.name);
           if (match) totalSum += match.total;
         });
-        
         return { ...cat, value: totalSum, trend: distributeMonthly(totalSum) };
       });
     };
@@ -181,7 +222,6 @@ const getPlantData = (plantId) => {
       descarte: sumCategories(['descarte']),
     };
   } else {
-    // REPORTE INDIVIDUAL (RG LIM, RG AQP, RG CÑT)
     const raw = PLANT_DATA[plantId];
     const process = (items) => items.map(item => ({ ...item, value: item.total, trend: distributeMonthly(item.total) }));
 
@@ -212,9 +252,9 @@ const aggregateTrends = (items) => {
   return aggregated;
 };
 
-// --- RENDERIZADO ETIQUETAS ---
+// --- RENDERIZADO PERSONALIZADO DE ETIQUETAS (PIE CHART) ---
 const RADIAN = Math.PI / 180;
-const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index }) => {
+const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, payload }) => {
   if (percent < 0.01) return null;
   const sin = Math.sin(-RADIAN * midAngle);
   const cos = Math.cos(-RADIAN * midAngle);
@@ -224,12 +264,15 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   const my = cy + (outerRadius + 15) * sin;
   const ex = mx + (cos >= 0 ? 1 : -1) * 15;
   const ey = my;
-  const color = COLORS.green[index % COLORS.green.length];
+  
+  const itemColor = getColor(name);
+  const textColor = getContrastColor(itemColor);
+  const isPlastic = name.toLowerCase().includes('plásticos');
 
   return (
     <g>
-      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={color} fill="none" strokeWidth={1.5} />
-      <circle cx={ex} cy={ey} r={2} fill={color} stroke="none" />
+      <path d={`M${sx},${sy}L${mx},${my}L${ex},${ey}`} stroke={itemColor} fill="none" strokeWidth={1.5} />
+      <circle cx={ex} cy={ey} r={2} fill={itemColor} stroke="none" />
       <rect 
         x={cos >= 0 ? ex + 5 : ex - 45} 
         y={ey - 12} 
@@ -237,7 +280,7 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
         height={24} 
         rx={4} 
         fill="white" 
-        stroke={color}
+        stroke={itemColor}
         strokeWidth={1.5}
         className="drop-shadow-sm"
       />
@@ -245,7 +288,8 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
         x={cos >= 0 ? ex + 26 : ex - 24} 
         y={ey} 
         textAnchor="middle" 
-        fill={color} 
+        // Si es plástico (fondo blanco/claro), forzamos texto oscuro si el contraste automático no lo detecta
+        fill={isPlastic ? '#000000' : (textColor === '#FFFFFF' ? '#333' : textColor)}
         fontSize={10} 
         fontWeight="800" 
         dominantBaseline="central"
@@ -256,10 +300,18 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   );
 };
 
+// --- ETIQUETA BARRA CON CONTRASTE ---
 const CustomBarLabel = (props) => {
   const { x, y, width, height, value, index, data } = props;
   const item = data && data[index];
   if (!item) return null;
+  
+  const isPeligrosos = data.some(d => d.name === 'Hidrocarburos');
+  const color = getColor(item.name, isPeligrosos ? 'peligrosos' : '');
+  const textColor = getContrastColor(color);
+  
+  // Detectar plásticos para borde visual en la barra
+  const isPlastic = item.name.toLowerCase().includes('plásticos');
 
   return (
     <g>
@@ -288,7 +340,7 @@ const CustomBarLabel = (props) => {
         x={x + width + 15} 
         y={y + height / 2} 
         dy={8} 
-        fill="#059669" 
+        fill={textColor === '#FFFFFF' ? '#64748b' : textColor} 
         fontSize={9} 
         fontWeight="bold"
         dominantBaseline="middle"
@@ -446,26 +498,14 @@ export default function App() {
   const totalPeligrosos = calculateTotal(currentData.peligrosos);
   const dataPeligrosos = processForChart(currentData.peligrosos, totalPeligrosos);
 
-  // KPI PRINCIPAL - CALCULO DINAMICO SEGUN SELECCION
-  // Si es 'all', usa la suma total de las 3 plantas que da 93,995.38
-  // Si es una planta especifica, usa sus propios datos.
+  // KPI PRINCIPAL 
   const totalGeneradoKPI = totalAprovechables + totalNoAprovechables + 
                            calculateTotal(currentData.noPeligrosos.organicos) + 
                            totalPeligrosos + 
                            calculateTotal(currentData.bienesPriorizados) + 
                            calculateTotal(currentData.descarte);
   
-  // Total aprovechado (Excluyendo No Aprovechables y Peligrosos no reciclables si aplica)
-  // En este caso, para cuadrar con el 98.60% del Excel:
-  // Aprovechado = Total Generado - Disposición Final (No Aprovechables + % de peligrosos no tratados)
-  // Usamos la lógica inversa para visualización: Generado - No Aprovechable (aprox)
-  const totalAprovechadoKPI = totalGeneradoKPI - totalNoAprovechables - 
-                              // Ajuste fino de peligrosos que van a disp final
-                              (selectedPlant === 'all' ? 0 : 0); 
-                              // Nota: El Excel indica 92681.30 aprovechado total vs 1314.08 disp final.
-                              // 93995.38 - 1314.08 = 92681.30. Exacto.
-                              // En mi data: totalNoAprovechables para 'all' suma 1314.08 (699.93+124.18+489.97). Perfecto.
-
+  const totalAprovechadoKPI = totalGeneradoKPI - totalNoAprovechables - (selectedPlant === 'all' ? 0 : 0); 
   const eficiencia = (totalAprovechadoKPI / totalGeneradoKPI) * 100;
 
   const handleSelect = (item) => {
@@ -509,7 +549,7 @@ export default function App() {
               </div>
            </div>
 
-           {/* KPI PRINCIPAL: GENERACIÓN vs APROVECHAMIENTO */}
+           {/* KPI PRINCIPAL */}
            <div className="flex gap-4">
              <div className="bg-slate-900 text-white px-5 py-2 rounded-lg flex flex-col justify-center shadow-xl ring-1 ring-white/20 min-w-[140px]">
                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest text-right">Generado 2025</p>
@@ -540,7 +580,7 @@ export default function App() {
         {/* 1. RESIDUOS NO PELIGROSOS */}
         <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <CardHeader 
-            title="1. Residuos No Peligrosos" 
+            title="RESIDUOS NO PELIGROSOS" 
             icon={FileText} 
             colorClass="bg-emerald-100 text-emerald-700" 
           />
@@ -550,8 +590,8 @@ export default function App() {
             {/* 1.A APROVECHABLES */}
             <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-200/60 relative">
               <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-                 <h4 className="font-bold text-slate-700 flex items-center gap-2 text-lg">
-                   <span className="w-2 h-8 rounded-full bg-emerald-500"></span> A. Aprovechables
+                 <h4 className="font-bold text-slate-700 flex items-center gap-2 text-lg uppercase">
+                   <span className="w-2 h-8 rounded-full bg-emerald-500"></span> RESIDUO APROVECHABLE
                  </h4>
                  <div className="flex items-center gap-3">
                     <button 
@@ -582,7 +622,12 @@ export default function App() {
                         labelLine={false} 
                       >
                         {dataNoPeligrososA.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS.green[index % COLORS.green.length]} stroke="transparent" />
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={getColor(entry.name)} 
+                            stroke={entry.name.toLowerCase().includes('plásticos') ? '#475569' : 'transparent'} 
+                            strokeWidth={entry.name.toLowerCase().includes('plásticos') ? 1 : 0} 
+                          />
                         ))}
                       </Pie>
                       <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{fontSize: '10px'}} />
@@ -601,9 +646,18 @@ export default function App() {
                         <Tooltip cursor={{fill: '#f8fafc'}} formatter={(value) => `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn`} />
                         <Bar dataKey="value" radius={[0, 6, 6, 0]} barSize={20}>
                           {dataNoPeligrososA.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS.green[index % COLORS.green.length]} />
+                            <Cell 
+                              key={`cell-${index}`} 
+                              fill={getColor(entry.name)} 
+                              stroke={entry.name.toLowerCase().includes('plásticos') ? '#475569' : 'transparent'} 
+                              strokeWidth={entry.name.toLowerCase().includes('plásticos') ? 1 : 0} 
+                            />
                           ))}
-                          <LabelList dataKey="name" position="insideLeft" style={{fill: '#fff', fontSize: '10px', fontWeight: 'bold'}} />
+                          <LabelList 
+                            dataKey="name" 
+                            position="insideLeft" 
+                            style={{fill: '#1e293b', fontSize: '10px', fontWeight: 'bold', textShadow: '0 0 2px white'}} // Sombra ligera para legibilidad universal
+                          />
                           <LabelList data={dataNoPeligrososA} content={<CustomBarLabel />} />
                         </Bar>
                      </BarChart>
@@ -619,7 +673,7 @@ export default function App() {
                     <button 
                       key={idx}
                       onClick={() => handleSelect(item.fullData)}
-                      className="px-3 py-2 bg-white rounded-lg border border-slate-200 text-xs text-slate-600 hover:border-emerald-400 hover:text-emerald-700 hover:shadow-md transition-all active:scale-95"
+                      className="px-3 py-2 bg-white rounded-lg border border-slate-200 text-xs text-slate-600 hover:border-emerald-400 hover:text-emerald-700 hover:shadow-md transition-all active:scale-95 whitespace-nowrap"
                     >
                       {item.name} <span className="font-bold text-emerald-500 ml-1">→</span>
                     </button>
@@ -634,7 +688,7 @@ export default function App() {
                 {/* 1.B */}
                 <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-200/60 flex flex-col">
                     <div className="flex justify-between items-center mb-4">
-                       <h4 className="font-bold text-slate-700">B. No Aprovechables</h4>
+                       <h4 className="font-bold text-slate-700 uppercase">RESIDUO NO APROVECHABLES</h4>
                        <button 
                           onClick={() => handleCategoryTrend(currentData.noPeligrosos.noAprovechable, "No Aprovechables")}
                           className="text-[10px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:text-blue-600 flex items-center gap-1"
@@ -652,7 +706,7 @@ export default function App() {
                              <Tooltip cursor={{fill: 'transparent'}} formatter={(val) => `${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn`} />
                              <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={16}>
                                {dataNoPeligrososB.map((entry, index) => (
-                                  <Cell key={`cell-${index}`} fill={COLORS.gray[index % COLORS.gray.length]} />
+                                  <Cell key={`cell-${index}`} fill={getColor(entry.name)} />
                                ))}
                                <LabelList data={dataNoPeligrososB} content={<CustomBarLabel />} />
                              </Bar>
@@ -676,7 +730,10 @@ export default function App() {
                 {/* 1.C */}
                 <div className="bg-amber-50/50 rounded-2xl p-6 border border-amber-100/60 flex flex-col">
                    <div className="flex justify-between items-center mb-6">
-                     <h4 className="font-bold text-amber-900">C. Orgánicos</h4>
+                     <h4 className="font-bold text-amber-900 uppercase flex items-center gap-2">
+                       <Leaf size={18} className="text-amber-700" /> 
+                       RESIDUO ORGÁNICOS, BIODEGRADABLES
+                     </h4>
                       <button 
                           onClick={() => handleCategoryTrend(currentData.noPeligrosos.organicos, "Orgánicos")}
                           className="text-[10px] bg-white border border-amber-200 text-amber-800 px-2 py-1 rounded shadow-sm hover:bg-amber-50 flex items-center gap-1"
@@ -713,7 +770,7 @@ export default function App() {
            {/* 2. RESIDUOS PELIGROSOS */}
            <section className="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
              <CardHeader 
-                title="2. Residuos Peligrosos" 
+                title="2. RESIDUOS PELIGROSOS" 
                 icon={AlertTriangle} 
                 colorClass="bg-red-50 text-red-600" 
                 onShowTrend={() => handleCategoryTrend(currentData.peligrosos, "Residuos Peligrosos")}
@@ -728,7 +785,7 @@ export default function App() {
                          <Tooltip cursor={{fill: '#fef2f2'}} formatter={(val) => `${val.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Tn`} />
                          <Bar dataKey="value" radius={[4, 4, 0, 0]} onClick={(data) => handleSelect(data.payload.fullData)} className="cursor-pointer">
                             {dataPeligrosos.map((entry, index) => (
-                               <Cell key={`cell-${index}`} fill={COLORS.red[index % COLORS.red.length]} />
+                               <Cell key={`cell-${index}`} fill={getColor(entry.name, 'peligrosos')} />
                             ))}
                             <LabelList dataKey="value" position="top" style={{fontSize: '11px', fill: '#991b1b', fontWeight: 'bold'}} formatter={(v) => `${v.toFixed(2)}`} />
                          </Bar>
@@ -743,7 +800,7 @@ export default function App() {
                         onClick={() => handleSelect(item.fullData)}
                         className="text-left text-[11px] p-2 rounded hover:bg-red-50 text-slate-600 hover:text-red-700 transition-colors flex items-center gap-2 border border-transparent hover:border-red-100"
                       >
-                         <div className="w-2 h-2 rounded-full shrink-0" style={{background: COLORS.red[idx % COLORS.red.length]}}></div>
+                         <div className="w-2 h-2 rounded-full shrink-0" style={{background: getColor(item.name, 'peligrosos')}}></div>
                          <span className="truncate">{item.name}</span>
                       </button>
                    ))}
@@ -757,7 +814,7 @@ export default function App() {
               {/* 3. BIENES PRIORIZADOS */}
               <section className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 overflow-hidden group">
                  <CardHeader 
-                    title="3. Bienes Priorizados" 
+                    title="3. RESIDUOS DE BIENES PRIORIZADOS" 
                     icon={Zap} 
                     colorClass="bg-blue-50 text-blue-600" 
                     onShowTrend={() => handleCategoryTrend(currentData.bienesPriorizados, "Bienes Priorizados")}
