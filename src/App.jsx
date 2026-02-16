@@ -3,7 +3,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList 
 } from 'recharts';
-import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2, Leaf } from 'lucide-react';
+import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2, Leaf, Monitor, Droplets } from 'lucide-react';
 
 // --- CONSTANTES Y COLORES PERSONALIZADOS ---
 const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -34,7 +34,6 @@ const RED_SHADES = {
 const getColor = (name, category = '') => {
   const n = name.toLowerCase();
   
-  // Lógica específica para Peligrosos (Gamas de Rojo)
   if (category === 'peligrosos') {
     if (n.includes('hidrocarburos')) return RED_SHADES.hidrocarburos;
     if (n.includes('químicos') || n.includes('quimicos')) return RED_SHADES.quimicos;
@@ -43,10 +42,9 @@ const getColor = (name, category = '') => {
     return RED_SHADES.otros;
   }
 
-  // Lógica General
   if (n.includes('metálicos') || n.includes('chatarra')) return COLOR_MAP.metalicos;
   if (n.includes('vidrio') || n.includes('botellas')) return COLOR_MAP.vidrio;
-  if (n.includes('pulper')) return COLOR_MAP.pulper; // Morado
+  if (n.includes('pulper')) return COLOR_MAP.pulper; 
   if (n.includes('cartón') || n.includes('papel')) return COLOR_MAP.papelCarton;
   if (n.includes('madera') || n.includes('pallets')) return COLOR_MAP.madera;
   if (n.includes('plásticos') || n.includes('bolsas')) return COLOR_MAP.plasticos;
@@ -58,7 +56,6 @@ const getColor = (name, category = '') => {
 
 // Función para determinar color de texto (Contraste)
 const getContrastColor = (hexColor) => {
-  // Colores oscuros que necesitan texto blanco
   const darkColors = [
     COLOR_MAP.pulper, 
     COLOR_MAP.noAprovechables, 
@@ -68,8 +65,8 @@ const getContrastColor = (hexColor) => {
     RED_SHADES.mezclas
   ];
   
-  if (darkColors.includes(hexColor)) return '#FFFFFF'; // Blanco
-  return '#1e293b'; // Slate-800 (Oscuro) por defecto para colores claros (Amarillo, Blanco, etc.)
+  if (darkColors.includes(hexColor)) return '#FFFFFF'; 
+  return '#1e293b'; 
 };
 
 // --- GENERACIÓN DE TENDENCIAS MENSUALES ---
@@ -252,7 +249,6 @@ const aggregateTrends = (items) => {
   return aggregated;
 };
 
-// --- RENDERIZADO PERSONALIZADO DE ETIQUETAS (PIE CHART) ---
 const RADIAN = Math.PI / 180;
 const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, payload }) => {
   if (percent < 0.01) return null;
@@ -288,7 +284,6 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
         x={cos >= 0 ? ex + 26 : ex - 24} 
         y={ey} 
         textAnchor="middle" 
-        // Si es plástico (fondo blanco/claro), forzamos texto oscuro si el contraste automático no lo detecta
         fill={isPlastic ? '#000000' : (textColor === '#FFFFFF' ? '#333' : textColor)}
         fontSize={10} 
         fontWeight="800" 
@@ -300,7 +295,6 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   );
 };
 
-// --- ETIQUETA BARRA CON CONTRASTE ---
 const CustomBarLabel = (props) => {
   const { x, y, width, height, value, index, data } = props;
   const item = data && data[index];
@@ -310,9 +304,6 @@ const CustomBarLabel = (props) => {
   const color = getColor(item.name, isPeligrosos ? 'peligrosos' : '');
   const textColor = getContrastColor(color);
   
-  // Detectar plásticos para borde visual en la barra
-  const isPlastic = item.name.toLowerCase().includes('plásticos');
-
   return (
     <g>
       <line 
@@ -669,15 +660,24 @@ export default function App() {
               <div className="mt-6 pt-4 border-t border-slate-200">
                 <p className="text-xs text-slate-400 mb-3 text-center italic">Selecciona un residuo para ver su tendencia anual específica:</p>
                 <div className="flex flex-wrap gap-2 justify-center">
-                  {dataNoPeligrososA.map((item, idx) => (
-                    <button 
-                      key={idx}
-                      onClick={() => handleSelect(item.fullData)}
-                      className="px-3 py-2 bg-white rounded-lg border border-slate-200 text-xs text-slate-600 hover:border-emerald-400 hover:text-emerald-700 hover:shadow-md transition-all active:scale-95 whitespace-nowrap"
-                    >
-                      {item.name} <span className="font-bold text-emerald-500 ml-1">→</span>
-                    </button>
-                  ))}
+                  {dataNoPeligrososA.map((item, idx) => {
+                    const btnColor = getColor(item.name);
+                    const textColor = getContrastColor(btnColor);
+                    return (
+                      <button 
+                        key={idx}
+                        onClick={() => handleSelect(item.fullData)}
+                        style={{
+                          backgroundColor: btnColor,
+                          color: textColor === '#FFFFFF' ? '#FFFFFF' : '#1e293b',
+                          borderColor: textColor === '#FFFFFF' ? 'transparent' : '#cbd5e1'
+                        }}
+                        className="px-3 py-2 rounded-lg border text-xs font-bold shadow-sm hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+                      >
+                        {item.name} <span className="ml-1 opacity-70">→</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -688,7 +688,7 @@ export default function App() {
                 {/* 1.B */}
                 <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-200/60 flex flex-col">
                     <div className="flex justify-between items-center mb-4">
-                       <h4 className="font-bold text-slate-700 uppercase">RESIDUO NO APROVECHABLES</h4>
+                       <h4 className="font-bold text-slate-700 uppercase">RESIDUO NO APROVECHABLE</h4>
                        <button 
                           onClick={() => handleCategoryTrend(currentData.noPeligrosos.noAprovechable, "No Aprovechables")}
                           className="text-[10px] bg-white border border-slate-200 text-slate-600 px-2 py-1 rounded shadow-sm hover:text-blue-600 flex items-center gap-1"
@@ -714,16 +714,26 @@ export default function App() {
                         </ResponsiveContainer>
                       </div>
 
-                      {dataNoPeligrososB.map((item, idx) => (
-                        <button 
-                          key={idx} 
-                          onClick={() => handleSelect(item.fullData)}
-                          className="w-full flex items-center justify-between p-3 bg-white rounded-xl border border-slate-100 hover:border-blue-300 hover:shadow-sm transition-all group"
-                        >
-                          <span className="text-xs font-medium text-slate-600">{item.name}</span>
-                          <Activity size={14} className="text-slate-300 group-hover:text-blue-500" />
-                        </button>
-                      ))}
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        {dataNoPeligrososB.map((item, idx) => {
+                          const btnColor = getColor(item.name);
+                          const textColor = getContrastColor(btnColor);
+                          return (
+                            <button 
+                              key={idx}
+                              onClick={() => handleSelect(item.fullData)}
+                              style={{
+                                backgroundColor: btnColor,
+                                color: textColor === '#FFFFFF' ? '#FFFFFF' : '#1e293b',
+                                borderColor: textColor === '#FFFFFF' ? 'transparent' : '#cbd5e1'
+                              }}
+                              className="px-3 py-2 rounded-lg border text-xs font-bold shadow-sm hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+                            >
+                              {item.name} <span className="ml-1 opacity-70">→</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                 </div>
 
@@ -732,7 +742,7 @@ export default function App() {
                    <div className="flex justify-between items-center mb-6">
                      <h4 className="font-bold text-amber-900 uppercase flex items-center gap-2">
                        <Leaf size={18} className="text-amber-700" /> 
-                       RESIDUO ORGÁNICOS, BIODEGRADABLES
+                       RESIDUOS ORGÁNICOS, BIODEGRADABLES
                      </h4>
                       <button 
                           onClick={() => handleCategoryTrend(currentData.noPeligrosos.organicos, "Orgánicos")}
@@ -748,15 +758,23 @@ export default function App() {
                          <span className="text-2xl font-black text-amber-700">100%</span>
                       </div>
                       
-                      {currentData.noPeligrosos.organicos.map((item, idx) => (
-                        <button 
-                           key={idx}
-                           onClick={() => handleSelect(item)}
-                           className="mt-8 bg-white px-6 py-3 rounded-xl shadow-sm border border-amber-200 text-amber-800 font-bold text-sm hover:bg-amber-50 transition-colors flex items-center gap-2"
-                        >
-                           Ver Tendencia Específica <ChevronRight size={16} />
-                        </button>
-                      ))}
+                      {currentData.noPeligrosos.organicos.map((item, idx) => {
+                        const btnColor = getColor(item.name);
+                        const textColor = getContrastColor(btnColor);
+                        return (
+                          <button 
+                             key={idx}
+                             onClick={() => handleSelect(item)}
+                             style={{
+                                backgroundColor: btnColor,
+                                color: textColor === '#FFFFFF' ? '#FFFFFF' : '#1e293b'
+                             }}
+                             className="mt-8 px-6 py-3 rounded-xl shadow-sm font-bold text-sm hover:opacity-90 transition-colors flex items-center gap-2"
+                          >
+                             Ver Tendencia Específica <ChevronRight size={16} />
+                          </button>
+                        );
+                      })}
                    </div>
                 </div>
 
@@ -793,17 +811,24 @@ export default function App() {
                    </ResponsiveContainer>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-3">
-                   {dataPeligrosos.map((item, idx) => (
-                      <button 
-                        key={idx}
-                        onClick={() => handleSelect(item.fullData)}
-                        className="text-left text-[11px] p-2 rounded hover:bg-red-50 text-slate-600 hover:text-red-700 transition-colors flex items-center gap-2 border border-transparent hover:border-red-100"
-                      >
-                         <div className="w-2 h-2 rounded-full shrink-0" style={{background: getColor(item.name, 'peligrosos')}}></div>
-                         <span className="truncate">{item.name}</span>
-                      </button>
-                   ))}
+                <div className="flex flex-wrap gap-2 justify-center">
+                   {dataPeligrosos.map((item, idx) => {
+                      const btnColor = getColor(item.name, 'peligrosos');
+                      const textColor = getContrastColor(btnColor);
+                      return (
+                        <button 
+                          key={idx}
+                          onClick={() => handleSelect(item.fullData)}
+                          style={{
+                            backgroundColor: btnColor,
+                            color: textColor === '#FFFFFF' ? '#FFFFFF' : '#1e293b'
+                          }}
+                          className="px-3 py-2 rounded-lg text-xs font-bold shadow-sm hover:opacity-90 transition-all active:scale-95 whitespace-nowrap"
+                        >
+                           {item.name}
+                        </button>
+                      );
+                   })}
                 </div>
              </div>
            </section>
@@ -815,7 +840,7 @@ export default function App() {
               <section className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 overflow-hidden group">
                  <CardHeader 
                     title="3. RESIDUOS DE BIENES PRIORIZADOS" 
-                    icon={Zap} 
+                    icon={Monitor} 
                     colorClass="bg-blue-50 text-blue-600" 
                     onShowTrend={() => handleCategoryTrend(currentData.bienesPriorizados, "Bienes Priorizados")}
                  />
@@ -827,7 +852,7 @@ export default function App() {
                          className="w-full h-full flex flex-col items-center justify-center p-4 rounded-xl hover:bg-blue-50/50 transition-all"
                       >
                          <div className="p-4 bg-blue-100 text-blue-600 rounded-full mb-3 group-hover:scale-110 transition-transform shadow-sm">
-                           <Zap size={32} />
+                           <Monitor size={32} />
                          </div>
                          <h3 className="text-lg font-bold text-slate-800">{item.name}</h3>
                          <div className="mt-2 text-2xl font-black text-slate-800">{calculateTotal([item]).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-sm font-normal text-slate-400">Tn</span></div>
@@ -841,7 +866,7 @@ export default function App() {
               <section className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1">
                  <CardHeader 
                     title="4. Residuos de Descarte" 
-                    icon={Trash2} 
+                    icon={Droplets} 
                     colorClass="bg-slate-100 text-slate-600" 
                     onShowTrend={() => handleCategoryTrend(currentData.descarte, "Residuos de Descarte")}
                  />
@@ -854,7 +879,7 @@ export default function App() {
                       >
                          <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-lg bg-slate-800 text-white flex items-center justify-center group-hover:bg-slate-700">
-                               <Trash2 size={18} />
+                               <Droplets size={18} />
                             </div>
                             <div className="text-left">
                                <div className="font-bold text-slate-700">{item.name}</div>
