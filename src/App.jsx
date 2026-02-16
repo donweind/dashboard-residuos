@@ -3,7 +3,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList, AreaChart, Area 
 } from 'recharts';
-import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2, Leaf, Monitor, Droplets, Recycle, ShieldAlert } from 'lucide-react';
+import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2, Leaf, Monitor, Droplets, Recycle, ShieldAlert, ExternalLink } from 'lucide-react';
 
 // --- CONSTANTES Y COLORES PERSONALIZADOS ---
 const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -13,7 +13,7 @@ const COLOR_MAP = {
   metalicos: '#FEE000',      // Amarillo
   vidrio: '#939598',         // Gris
   papelCarton: '#0096D6',    // Azul Claro
-  pulper: '#6A0DAD',         // Morado (Solicitado)
+  pulper: '#6A0DAD',         // Morado
   madera: '#63422B',         // Marrón Oscuro
   noAprovechables: '#231F20',// Negro
   plasticos: '#FFFFFF',      // Blanco
@@ -250,7 +250,6 @@ const aggregateTrends = (items) => {
 };
 
 // --- RENDERIZADO PERSONALIZADO DE ETIQUETAS (PIE CHART) ---
-// Distancia revertida a 15 para evitar que se alejen demasiado
 const RADIAN = Math.PI / 180;
 const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, payload }) => {
   if (percent < 0.01) return null;
@@ -352,10 +351,11 @@ const CustomBarLabel = (props) => {
   );
 };
 
-// --- ETIQUETA SUPERIOR PARA PELIGROSOS CON SEGURIDAD (PAYLOAD CHECK) ---
+// --- ETIQUETA SUPERIOR PARA PELIGROSOS CON SEGURIDAD ---
 const HazardousBarLabel = (props) => {
   const { x, y, width, value, index, payload } = props;
   
+  // Usamos payload para extraer los datos de forma segura
   if (value === undefined || value === null || typeof value !== 'number' || !payload) return null;
 
   return (
@@ -396,17 +396,10 @@ const CustomLegend = ({ payload }) => {
   );
 };
 
-const CardHeader = ({ title, icon: Icon, colorClass, onShowTrend, link }) => (
+const CardHeader = ({ title, icon: Icon, colorClass, onShowTrend }) => (
   <div className={`flex items-center justify-between p-4 border-b border-slate-100 ${colorClass} bg-opacity-10`}>
     <div className="flex items-center gap-2">
-      {link ? (
-        <a href={link} target="_blank" rel="noopener noreferrer" className="hover:scale-110 transition-transform cursor-pointer group flex items-center gap-2" title="Ver documentación en Drive">
-           <Trash2 className={`w-6 h-6 ${colorClass.replace('bg-', 'text-')}`} />
-           <span className="text-[10px] text-emerald-600 underline opacity-0 group-hover:opacity-100 transition-opacity">Ver Drive</span>
-        </a>
-      ) : (
-        <Icon className={`w-5 h-5 ${colorClass.replace('bg-', 'text-')}`} />
-      )}
+      <Icon className={`w-5 h-5 ${colorClass.replace('bg-', 'text-')}`} />
       <h3 className="font-bold text-slate-800 uppercase text-sm tracking-wider">{title}</h3>
     </div>
     {onShowTrend && (
@@ -430,9 +423,16 @@ const PlantSelector = ({ selectedPlant, onSelect }) => {
   return (
     <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-lg border border-slate-200 p-4 lg:p-6 flex flex-col md:flex-row items-center justify-between gap-4 z-10 relative">
       <div className="flex items-center gap-3 shrink-0">
-        <div className="bg-blue-600 p-3 rounded-lg text-white">
+        <a 
+          href="https://drive.google.com/drive/folders/1vC71gtz1w8ltSiE7UFc9aHrKwegJh815" 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="bg-blue-600 p-3 rounded-lg text-white hover:bg-blue-700 transition-colors cursor-pointer group"
+          title="Ver Documentación en Drive"
+        >
           <Factory size={24} />
-        </div>
+          <ExternalLink size={12} className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+        </a>
         <div>
            <h2 className="text-lg font-bold text-slate-800 uppercase leading-none">Selector de Operación</h2>
            <p className="text-xs text-slate-500 mt-1">Datos Reales 2025</p>
@@ -633,9 +633,8 @@ export default function App() {
         <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
           <CardHeader 
             title="RESIDUOS NO PELIGROSOS" 
-            icon={FileText} // Este icono no se renderiza si hay link, se usa Trash2 por defecto
+            icon={Trash2} // Icono Tachito (solo visual, sin link aquí)
             colorClass="bg-emerald-100 text-emerald-700"
-            link="https://drive.google.com/drive/folders/1vC71gtz1w8ltSiE7UFc9aHrKwegJh815"
           />
           
           <div className="p-8 space-y-10">
