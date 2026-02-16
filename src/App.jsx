@@ -3,7 +3,7 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer, LineChart, Line, LabelList 
 } from 'recharts';
-import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2, Leaf, Monitor, Droplets } from 'lucide-react';
+import { FileText, Zap, AlertTriangle, Trash2, X, Activity, Factory, LayoutDashboard, ChevronRight, BarChart2, Leaf, Monitor, Droplets, Recycle } from 'lucide-react';
 
 // --- CONSTANTES Y COLORES PERSONALIZADOS ---
 const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -249,6 +249,8 @@ const aggregateTrends = (items) => {
   return aggregated;
 };
 
+// --- RENDERIZADO PERSONALIZADO DE ETIQUETAS (PIE CHART) ---
+// Se ha ajustado la distancia (outerRadius + 35) para separar más los textos
 const RADIAN = Math.PI / 180;
 const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, payload }) => {
   if (percent < 0.01) return null;
@@ -256,9 +258,9 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   const cos = Math.cos(-RADIAN * midAngle);
   const sx = cx + (outerRadius) * cos;
   const sy = cy + (outerRadius) * sin;
-  const mx = cx + (outerRadius + 15) * cos;
-  const my = cy + (outerRadius + 15) * sin;
-  const ex = mx + (cos >= 0 ? 1 : -1) * 15;
+  const mx = cx + (outerRadius + 35) * cos; // AUMENTADO PARA ALEJAR ETIQUETA
+  const my = cy + (outerRadius + 35) * sin; // AUMENTADO PARA ALEJAR ETIQUETA
+  const ex = mx + (cos >= 0 ? 1 : -1) * 20;
   const ey = my;
   
   const itemColor = getColor(name);
@@ -295,6 +297,7 @@ const renderCustomizedPieLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, 
   );
 };
 
+// --- ETIQUETA BARRA CON CONTRASTE ---
 const CustomBarLabel = (props) => {
   const { x, y, width, height, value, index, data } = props;
   const item = data && data[index];
@@ -339,6 +342,37 @@ const CustomBarLabel = (props) => {
         ({item.percentage}%)
       </text>
     </g>
+  );
+};
+
+// --- LEYENDA PERSONALIZADA PARA PIE CHART ---
+const CustomLegend = ({ payload }) => {
+  return (
+    <div className="flex flex-col gap-1 text-[10px] ml-4 justify-center h-full">
+      {payload.map((entry, index) => {
+        const isPlastic = entry.value.toLowerCase().includes('plásticos');
+        return (
+          <div key={`item-${index}`} className="flex items-center gap-2 mb-1">
+            <div 
+              style={{ 
+                width: 10, 
+                height: 10, 
+                backgroundColor: entry.color, 
+                border: isPlastic ? '1px solid #000' : 'none', // Borde negro para el cuadradito blanco
+                borderRadius: '2px'
+              }} 
+            />
+            <span style={{ 
+              color: '#334155',
+              fontWeight: isPlastic ? '900' : '500', // Negrita para el texto Plásticos
+              textShadow: isPlastic ? '0px 0px 0.5px rgba(0,0,0,0.5)' : 'none'
+            }}>
+              {entry.value}
+            </span>
+          </div>
+        )
+      })}
+    </div>
   );
 };
 
@@ -582,7 +616,8 @@ export default function App() {
             <div className="bg-slate-50/50 rounded-2xl p-6 border border-slate-200/60 relative">
               <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
                  <h4 className="font-bold text-slate-700 flex items-center gap-2 text-lg uppercase">
-                   <span className="w-2 h-8 rounded-full bg-emerald-500"></span> RESIDUO APROVECHABLE
+                   <span className="p-1.5 bg-emerald-100 rounded-full text-emerald-600"><Recycle size={20} /></span>
+                   RESIDUO APROVECHABLE
                  </h4>
                  <div className="flex items-center gap-3">
                     <button 
@@ -621,7 +656,7 @@ export default function App() {
                           />
                         ))}
                       </Pie>
-                      <Legend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{fontSize: '10px'}} />
+                      <Legend content={<CustomLegend />} layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{fontSize: '10px'}} />
                     </PieChart>
                   </ResponsiveContainer>
                 </div>
@@ -788,7 +823,7 @@ export default function App() {
            {/* 2. RESIDUOS PELIGROSOS */}
            <section className="lg:col-span-7 bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
              <CardHeader 
-                title="2. RESIDUOS PELIGROSOS" 
+                title="RESIDUOS PELIGROSOS" 
                 icon={AlertTriangle} 
                 colorClass="bg-red-50 text-red-600" 
                 onShowTrend={() => handleCategoryTrend(currentData.peligrosos, "Residuos Peligrosos")}
@@ -839,7 +874,7 @@ export default function App() {
               {/* 3. BIENES PRIORIZADOS */}
               <section className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1 overflow-hidden group">
                  <CardHeader 
-                    title="3. RESIDUOS DE BIENES PRIORIZADOS" 
+                    title="RESIDUOS DE BIENES PRIORIZADOS" 
                     icon={Monitor} 
                     colorClass="bg-blue-50 text-blue-600" 
                     onShowTrend={() => handleCategoryTrend(currentData.bienesPriorizados, "Bienes Priorizados")}
@@ -865,7 +900,7 @@ export default function App() {
               {/* 4. RESIDUOS DE DESCARTE */}
               <section className="bg-white rounded-2xl shadow-sm border border-slate-100 flex-1">
                  <CardHeader 
-                    title="4. Residuos de Descarte" 
+                    title="RESIDUOS DE DESCARTE" 
                     icon={Droplets} 
                     colorClass="bg-slate-100 text-slate-600" 
                     onShowTrend={() => handleCategoryTrend(currentData.descarte, "Residuos de Descarte")}
